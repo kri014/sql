@@ -1,93 +1,175 @@
-CREATE DATABASE win_fun
-USE win_fun
-CREATE TABLE ineuron_student(
-student_id INT,
-student_batch VARCHAR(40),
-student_name VARCHAR(40),
-student_stream VARCHAR(30),
-student_marks int,
-student_mail_id VARCHAR(50))
+SELECT *,
+      amount*100/sum(amount) as pct
+FROM expenses
+ORDER BY category
 
-insert into ineuron_student values(100 ,'fsda' , 'saurabh','cs',80,'saurabh@gmail.com'),
-(102 ,'fsda' , 'sanket','cs',81,'sanket@gmail.com'),
-(103 ,'fsda' , 'shyam','cs',80,'shyam@gmail.com'),
-(104 ,'fsda' , 'sanket','cs',82,'sanket@gmail.com'),
-(105 ,'fsda' , 'shyam','ME',67,'shyam@gmail.com'),
-(106 ,'fsds' , 'ajay','ME',45,'ajay@gmail.com'),
-(106 ,'fsds' , 'ajay','ME',78,'ajay@gmail.com'),
-(108 ,'fsds' , 'snehal','CI',89,'snehal@gmail.com'),
-(109 ,'fsds' , 'manisha','CI',34,'manisha@gmail.com'),
-(110 ,'fsds' , 'rakesh','CI',45,'rakesh@gmail.com'),
-(111 ,'fsde' , 'anuj','CI',43,'anuj@gmail.com'),
-(112 ,'fsde' , 'mohit','EE',67,'mohit@gmail.com'),
-(113 ,'fsde' , 'vivek','EE',23,'vivek@gmail.com'),
-(114 ,'fsde' , 'gaurav','EE',45,'gaurav@gmail.com'),
-(115 ,'fsde' , 'prateek','EE',89,'prateek@gmail.com'),
-(116 ,'fsde' , 'mithun','ECE',23,'mithun@gmail.com'),
-(117 ,'fsbc' , 'chaitra','ECE',23,'chaitra@gmail.com'),
-(118 ,'fsbc' , 'pranay','ECE',45,'pranay@gmail.com'),
-(119 ,'fsbc' , 'sandeep','ECE',65,'sandeep@gmail.com')
-insert into ineuron_student values(101 ,'fsbc' , 'sandeep','ECE',65,'sandeep@gmail.com')
+-- ----------------sum of expenses----------
+SELECT sum(amount) FROM expenses # 65800
 
-select * from ineuron_student order by student_id asc
--- saggrigation based analytical question 
-select student_batch, min(student_marks) from ineuron_student group by student_batch
-select student_batch, max(student_marks) from ineuron_student group by student_batch
-select student_batch, avg(student_marks) from ineuron_student group by student_batch
-select student_batch, sum(student_marks) from ineuron_student group by student_batch
+-- --------------- percantage of the expenses 
+SELECT *,
+      amount*100/sum(amount) as pct
+FROM expenses
+ORDER BY category
 
-select count(student_batch) from ineuron_student 
+-- Here we will get only one output we can't get for all the values 
+-- To get the values we have to use Window Function
+-- -----------------Window Function -----------------------------------------
+-- 1. Use OVER() clause 
 
-select count(distinct student_batch) from ineuron_student
-
-select student_batch, count(*) from ineuron_student group by student_batch
-select * from ineuron_student order by student_id asc
-
-select student_name from ineuron_student 
-where student_marks in ( select max(student_marks) from ineuron_student 
-                         where student_batch="fsda")
-
-SELECT student_id, student_batch, student_stream, student_marks,row_number() 
-over (order by student_marks) as 'row number' 
-from ineuron_student
+SELECT *,
+      amount*100/sum(amount) OVER() as pct
+FROM expenses
+ORDER BY category
+-- it will give the percentage for all the rows 
+-- 2. using partition inside the over()--> it will give the percentage for each category of food
+SELECT *,
+      amount*100/sum(amount) OVER(partition by category) as pct
+FROM expenses
+ORDER BY category
+--  
+SELECT sum(amount) FROM expenses 
+WHERE category = 'food'  # 11800
 
 
-SELECT student_id, student_batch, student_stream, student_marks,row_number() 
-over (partition by student_batch order by student_marks desc) as 'row_number1' 
-from ineuron_student 
+-- cumulative expenses 
+SELECT *,
+       SUM(amount) OVER (partition by category order by date) as total_expenses
+FROM expenses
+ORDER BY category,date 
 
-SELECT * FROM (SELECT student_id, student_batch, student_stream, student_marks,row_number() 
-over (partition by student_batch order by student_marks desc) as 'row_number1' 
-from ineuron_student ) as test where row_number1=1
+-- ------------------
+SELECT 
+		  d.customer,
+		  round(sum(net_sales)/1000000,2) as sales_in_million,
+	FROM net_sales n
+	JOIN dim_customer d
+	ON d.customer_code=n.customer_code
+	where fiscal_year=2020 
+	group by d.customer
+    ORDER BY sales_in_million DESC
+    LIMIT 10
+    
+ -- get total sum of the  
+ WITH cte1 as (
+    SELECT 
+		  d.customer,
+		  round(sum(net_sales)/1000000,2) as sales_in_million
+	FROM net_sales n
+	JOIN dim_customer d
+	ON d.customer_code=n.customer_code
+	where fiscal_year=2021 
+	group by d.customer
+    ORDER BY sales_in_million DESC
+ )
+ 
+ 
+  WITH cte1 as (
+    SELECT 
+		  d.customer,
+          d.region,
+		  round(sum(net_sales)/1000000,2) as sales_in_million
+	FROM net_sales n
+	JOIN dim_customer d
+	ON d.customer_code=n.customer_code
+	where fiscal_year=2021 
+	group by d.customer 
+    ORDER BY sales_in_million DESC
+ )
+ 
+ SELECT *,
+		sales_in_million*100/SUM(sales_in_million) over(partition by region) as total_sales_pct
+ FROM cte1
+ GROUP BY region
+ ORDER BY total_sales_pct DESC
 
--- selecting the 1st rank of the student
-SELECT * FROM (SELECT student_id, student_batch, student_stream, student_marks,
-               row_number() over (partition by student_batch order by student_marks desc) as 'row_number1' ,
-                rank() over (partition by student_batch order by student_marks desc) as 'rank_row' 
-			  from ineuron_student ) as test
-              where rank_row=1
--- dense_rank() and the selection with 2, 3,4 rank in the student marks 
-SELECT student_id, student_batch, student_stream, student_marks,
-               row_number() over (partition by student_batch order by student_marks desc) as 'row_number1' ,
-                rank() over (partition by student_batch order by student_marks desc) as 'rank_row',
-                dense_rank() over (partition by student_batch order by student_marks desc) as 'dense_rank'
-			  from ineuron_student
--- student with 2nd rank              
-SELECT * FROM (SELECT student_id, student_batch, student_stream, student_marks,
-               row_number() over (partition by student_batch order by student_marks desc) as 'row_number1' ,
-                rank() over (partition by student_batch order by student_marks desc) as 'rank_row',
-                dense_rank() over (partition by student_batch order by student_marks desc) as 'dense_rank'
-			  from ineuron_student) as test where `dense_rank`= 2
--- student with 3rd rank
-SELECT * FROM (SELECT student_id, student_batch, student_stream, student_marks,
-               row_number() over (partition by student_batch order by student_marks desc) as 'row_number1' ,
-                rank() over (partition by student_batch order by student_marks desc) as 'rank_row',
-                dense_rank() over (partition by student_batch order by student_marks desc) as 'dense_rank'
-			  from ineuron_student) as test where `dense_rank`= 3
-              
--- all student rank
-SELECT * FROM (SELECT student_id, student_batch, student_stream, student_marks,
-               row_number() over (partition by student_batch order by student_marks desc) as 'row_number1' ,
-                rank() over (partition by student_batch order by student_marks desc) as 'rank_row',
-                dense_rank() over (partition by student_batch order by student_marks desc) as 'dense_rank'
-			  from ineuron_student) as test where `dense_rank` in (1,2,3)
+
+ WITH cte1 as (
+    SELECT 
+		  d.customer,
+          d.region,
+		  round(sum(net_sales)/1000000,2) as sales_in_million
+	FROM net_sales n
+	JOIN dim_customer d
+	ON d.customer_code=n.customer_code
+	where fiscal_year=2021 
+	group by d.customer
+    ORDER BY sales_in_million DESC
+ )
+ SELECT *, sales_in_million*100/sum(sales_in_million) over(partition) as sales_pct
+ FROM cte1
+ GROUP BY region
+ 
+ 
+ -- rank(),dense_rank(),row_number()
+ # Show top two expenses given category
+ SELECT * FROM expenses
+ ORDER BY category
+ 
+ -- 
+SELECT *, 
+      row_number () over(partition by category order by amount DESC) as row_rank 
+FROM expenses
+ORDER BY category
+
+-- now get the top two rank 
+with cte1 as(
+SELECT *, 
+      row_number () over(partition by category order by amount DESC) as rn 
+FROM expenses
+ORDER BY category
+)
+SELECT * FROM cte1
+where rn <=2 
+-- in output even if food with same amount it gives the wrong output
+
+-- using rank()
+SELECT *, 
+      row_number () over(partition by category order by amount DESC) as rn,
+      rank () over(partition by category order by amount DESC) as rnk 
+FROM expenses
+ORDER BY category
+
+-- here rank don't have the 3 rank for two same value amount
+
+-- using dense_rank()
+
+SELECT *, 
+      row_number () over(partition by category order by amount DESC) as rn,
+      rank () over(partition by category order by amount DESC) as rnk,
+      dense_rank () over(partition by category order by amount DESC) as drnk
+FROM expenses
+ORDER BY category
+
+-- this is perfect ranking
+
+-- using for getting top 2 rank
+
+WITH cte1 as (SELECT *, 
+      row_number () over(partition by category order by amount DESC) as rn,
+      rank () over(partition by category order by amount DESC) as rnk,
+      dense_rank () over(partition by category order by amount DESC) as drnk
+FROM expenses
+ORDER BY category)
+
+SELECT * FROM cte1
+WHERE drnk <=2
+
+-- using student_marks table in random_table database
+SELECT * FROM student_marks
+-- Aaply all the window function ranking method 
+ SELECT *,
+  row_number () over( order by marks DESC) as rn,
+      rank () over(  order by marks DESC) as rnk,
+      dense_rank () over( order by marks DESC) as drnk
+ FROM student_marks
+ -- getting top five students name 
+ with cte1 as (SELECT *,
+  row_number () over( order by marks DESC) as rn,
+      rank () over(  order by marks DESC) as rnk,
+      dense_rank () over( order by marks DESC) as drnk
+ FROM student_marks
+ )
+ 
+SELECT * FROM cte1
+WHERE drnk<=5
